@@ -1,0 +1,85 @@
+name: sql-query-env
+version: "1.0.0"
+description: >
+  A real-world OpenEnv environment where AI agents write SQL queries to answer
+  business questions. Tasks range from simple aggregations to complex cohort
+  analysis and churn risk classification using window functions and CASE logic.
+author: Aditya Agrawal
+tags:
+  - openenv
+  - sql
+  - data-analysis
+  - real-world
+  - business-intelligence
+
+environment:
+  type: http
+  base_url: "http://localhost:7860"
+  endpoints:
+    reset: POST /reset
+    step: POST /step
+    state: GET /state
+    tasks: GET /tasks
+    health: GET /health
+
+tasks:
+  - id: easy_sales_summary
+    name: Sales Summary Report
+    difficulty: easy
+    max_steps: 5
+    description: >
+      Compute total revenue per product category for completed orders only.
+      Tests basic SELECT, JOIN, GROUP BY, and WHERE filtering.
+
+  - id: medium_customer_cohort
+    name: Customer Cohort Analysis
+    difficulty: medium
+    max_steps: 7
+    description: >
+      Find customers active in 2+ distinct months, with order counts and spend.
+      Tests GROUP BY, HAVING, date functions, and multi-table JOINs.
+
+  - id: hard_running_metrics
+    name: Running Revenue & Churn Risk Analysis
+    difficulty: hard
+    max_steps: 10
+    description: >
+      Classify customers by churn risk using recency and order frequency.
+      Tests complex CASE WHEN logic, date arithmetic with julianday(),
+      aggregation, and custom sorting.
+
+reward:
+  range: [0.0, 1.0]
+  signals:
+    - correctness: Row-level and column-level match against expected output
+    - efficiency: Use of appropriate SQL constructs for the task difficulty
+    - style: Avoid SELECT *, use semicolons, clean formatting
+
+action_space:
+  type: text
+  description: A SQL query string (SQLite syntax)
+  fields:
+    sql_query:
+      type: string
+      description: The SQL query to execute
+
+observation_space:
+  type: structured
+  fields:
+    task_id: string
+    task_name: string
+    difficulty: enum [easy, medium, hard]
+    schema_ddl: string
+    sample_data: string
+    business_question: string
+    hint: string (optional)
+    previous_error: string (optional)
+    previous_sql: string (optional)
+    step_number: integer
+    max_steps: integer
+
+docker:
+  image: sql-query-env
+  build_context: .
+  dockerfile: Dockerfile
+  port: 7860
