@@ -1,63 +1,76 @@
-import sys
-import os
-sys.path.append(os.getcwd())
+from tasks import TASKS
 
-from models import Observation, Action
-from tasks import get_tasks
-from grader import grade_step
-from rewards import compute_reward
-import random
+
+class Observation:
+    def __init__(self, query, difficulty, step):
+        self.query = query
+        self.difficulty = difficulty
+        self.step = step
+
+    def model_dump(self):
+        return {
+            "query": self.query,
+            "difficulty": self.difficulty,
+            "step": self.step,
+        }
 
 
 class SupportEnv:
-
     def __init__(self):
-        self.tasks = get_tasks()
+        self.tasks = TASKS
         self.current_task = None
-        self.stage = None
-        self.history = []
-        self.step_count = 0
-        self.max_steps = 3
+        self.current_step = 0
+        self.done = False
 
     def reset(self):
-        self.current_task = random.choice(self.tasks)
-        self.stage = "classification"
-        self.history = []
-        self.step_count = 0
+        # rotate tasks for realism
+        if self.current_task is None:
+            self.current_task = self.tasks[0]
+        else:
+            idx = self.tasks.index(self.current_task)
+            self.current_task = self.tasks[(idx + 1) % len(self.tasks)]
+
+        self.current_step = 0
+        self.done = False
 
         return Observation(
             query=self.current_task["query"],
-            stage=self.stage,
-            history=[]
+            difficulty=self.current_task["difficulty"],
+            step=self.current_step,
         )
 
     def step(self, action):
-        expected = self.current_task["expected_flow"]
+        if self.done:
+            return self.reset(), 0.0, True, {}
 
-        stage_score = grade_step(self.stage, action, expected)
+        self.current_step += 1
 
-        self.history.append(str(action))
-        self.step_count += 1
+        expected = self.current_task["expected"]
 
-        done = False
+        reward = 0.0
 
-        if self.stage == "classification":
-            self.stage = "action"
-        elif self.stage == "action":
-            self.stage = "response"
+        # ---- reward shaping ----
+        if action == expected:
+            reward += 0.6  # correct decision
+            if self.current_step <= 2:
+                reward += 0.2  # fast decision bonus
+            reward += 0.2  # completion bonus
+            self.done = True
         else:
-            done = True
+            reward -= 0.2  # penalty for wrong action
+            self.done = True
 
-        if self.step_count >= self.max_steps:
-            done = True
+        obs = Observation(
+            query=self.current_task["query"],
+            difficulty=self.current_task["difficulty"],
+            step=self.current_step,
+        )
 
-        reward = compute_reward(stage_score, done)
-
-        return self.state(), reward, done, {}
+        return obs, reward, self.done, {}
 
     def state(self):
-        return Observation(
-            query=self.current_task["query"],
-            stage=self.stage,
-            history=self.history
-        )
+        return {
+            "current_task": self.current_task,
+            "step": self.current_step,
+            "done": self.done,
+        }
