@@ -3,22 +3,13 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi import FastAPI
-from pydantic import BaseModel
 import uvicorn
 
-from environment import SupportEnv as SQLQueryEnv
+from environment import SupportEnv
 
 app = FastAPI()
 
-_env = SQLQueryEnv()
-
-
-class StepRequest(BaseModel):
-    sql_query: str
-
-
-class ResetRequest(BaseModel):
-    task_id: str | None = None
+_env = SupportEnv()
 
 
 @app.get("/")
@@ -27,27 +18,27 @@ def root():
 
 
 @app.post("/reset")
-def reset(req: ResetRequest = ResetRequest()):
-    result = _env.reset(task_id=req.task_id)
-    obs = result.observation
+def reset(req: dict = {}):
+    obs = _env.reset()
     return {
-        "observation": obs.model_dump(),
-        "reward": result.reward,
-        "done": result.done,
-        "info": result.info,
+        "observation": obs.model_dump() if hasattr(obs, "model_dump") else obs,
+        "reward": 0.0,
+        "done": False,
+        "info": {},
     }
 
 
 @app.post("/step")
-def step(req: StepRequest):
-    action = SQLAction(sql_query=req.sql_query)
-    result = _env.step(action)
-    obs = result.observation
+def step(action: dict):
+    act = action.get("action") or action.get("sql_query") or action
+
+    obs, reward, done, info = _env.step(act)
+
     return {
-        "observation": obs.model_dump(),
-        "reward": result.reward,
-        "done": result.done,
-        "info": result.info,
+        "observation": obs.model_dump() if hasattr(obs, "model_dump") else obs,
+        "reward": float(reward),
+        "done": bool(done),
+        "info": info if isinstance(info, dict) else {},
     }
 
 
@@ -58,7 +49,9 @@ def state():
 
 @app.get("/tasks")
 def tasks():
-    return {"tasks": list(TASKS.keys())}
+    if hasattr(_env, "tasks"):
+        return {"tasks": _env.tasks}
+    return {"tasks": []}
 
 
 def main():
