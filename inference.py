@@ -1,104 +1,52 @@
-import asyncio
-import sys
 import os
-
-sys.path.append(os.getcwd())
-
+from openai import OpenAI
 from environment import SupportEnv
-from models import Action
 
-BENCHMARK = "sql-query-env"
-TASK_NAME = "sql-task"
-MAX_STEPS = 3
+client = OpenAI(
+    base_url=os.environ["API_BASE_URL"],
+    api_key=os.environ["API_KEY"]
+)
 
+env = SupportEnv()
 
-def log_start(task, env, model):
-    print(f"[START] task={task} env={env} model={model}", flush=True)
+print("[START] task=sql-task env=sql-query-env model=llm-agent")
 
+obs = env.reset()
 
-def log_step(step, action, reward, done):
-    print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()}",
-        flush=True,
+total_reward = 0
+rewards = []
+
+for step in range(1, 4):
+    # 🔥 LLM CALL (MANDATORY)
+    response = client.chat.completions.create(
+        model=os.environ.get("MODEL_NAME", "gpt-3.5-turbo"),
+        messages=[
+            {"role": "system", "content": "You are a support agent."},
+            {"role": "user", "content": f"Step {step}: decide action"}
+        ],
+        max_tokens=10
     )
 
+    action_text = response.choices[0].message.content.lower()
 
-def log_end(success, steps, score, rewards):
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
-        flush=True,
-    )
+    # simple mapping
+    if "refund" in action_text:
+        action = "refund"
+    elif "escalate" in action_text:
+        action = "escalate"
+    else:
+        action = "resolve"
 
+    obs, reward, done, info = env.step(action)
 
-# 🔥 IMPROVED RULE-BASED AGENT
-def get_action(observation):
-    query = observation.query.lower()
-    stage = observation.stage
+    total_reward += reward
+    rewards.append(reward)
 
-    # --- classification ---
-    if stage == "classification":
-        if "charged" in query or "refund" in query:
-            return Action(intent="refund")
-        elif "not delivered" in query or "delivery" in query:
-            return Action(intent="complaint")
-        elif "payment" in query:
-            return Action(intent="investigate")
-        else:
-            return Action(intent="investigate")
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()}")
 
-    # --- action ---
-    elif stage == "action":
-        if "refund" in query or "charged" in query:
-            return Action(action="process_refund")
-        else:
-            return Action(action="escalate")
+    if done:
+        break
 
-    # --- response ---
-    elif stage == "response":
-        if "refund" in query or "charged" in query:
-            return Action(response="Your refund has been processed successfully.")
-        elif "not delivered" in query or "delivery" in query:
-            return Action(response="We are escalating your issue as high priority.")
-        else:
-            return Action(response="We are investigating and will resolve your issue soon.")
+score = total_reward / len(rewards)
 
-    # fallback (should never hit)
-    return Action(
-        intent="investigate",
-        action="escalate",
-        response="We are resolving your query.",
-    )
-
-
-async def main():
-    env = SupportEnv()
-
-    rewards = []
-    steps_taken = 0
-
-    log_start(TASK_NAME, BENCHMARK, "rule-based-agent")
-
-    obs = env.reset()
-
-    for step in range(1, MAX_STEPS + 1):
-        action = get_action(obs)
-
-        obs, reward, done, _ = env.step(action)
-
-        rewards.append(reward)
-        steps_taken = step
-
-        log_step(step, action, reward, done)
-
-        if done:
-            break
-
-    score = min(max(sum(rewards) / MAX_STEPS, 0), 1)
-    success = score >= 0.5
-
-    log_end(success, steps_taken, score, rewards)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+print(f"[END] success={str(done).lower()} steps={step} score={score:.2f} rewards={','.join([f'{r:.2f}' for r in rewards])}")
