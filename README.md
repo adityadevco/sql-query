@@ -10,98 +10,127 @@ tags:
 
 # 🧠 SQL Query Environment (OpenEnv)
 
-A real-world reinforcement learning environment for training AI agents to handle structured query resolution tasks such as refunds, complaints, and investigations.
-
-Built using the OpenEnv framework with full API compliance.
+A real-world reinforcement learning environment simulating customer support decision-making workflows.
 
 ---
 
 ## 🚀 Overview
 
-This environment simulates a multi-step workflow where an AI agent must:
+This environment models how AI agents handle customer queries by:
 
-1. Classify user intent  
-2. Decide the correct system action  
-3. Generate a response  
+1. Understanding user intent  
+2. Choosing the correct operational action  
+3. Resolving issues effectively  
 
-This mirrors real-world systems like:
+It reflects real-world systems used in:
 - customer support automation  
-- ticket resolution pipelines  
-- query handling systems  
+- helpdesk ticket routing  
+- AI assistants  
 
 ---
 
-## ⚙️ OpenEnv API Endpoints
+## 🧩 Problem Setting
 
-The environment exposes the required OpenEnv endpoints:
+Each episode consists of:
+
+- A customer query  
+- An agent decision  
+- A reward signal  
+
+The goal is to maximize correct decision-making.
+
+---
+
+## ⚙️ API (OpenEnv Spec)
 
 | Method | Endpoint | Description |
-|------|--------|-------------|
-| POST | `/reset` | Initialize environment |
-| POST | `/step` | Perform an action |
-| GET  | `/state` | Get current state |
-| GET  | `/` | Health check |
-
----
-
-## 🧩 Environment Design
-
-### Observation
-
-Each observation includes:
-
-- `query` → user input  
-- `stage` → current phase (`classification`, `action`, `response`)  
-- `history` → previous steps  
-
----
-
-### Action Space
-
-Agent outputs structured actions:
-
-- `intent` → refund / complaint / investigate  
-- `action` → process_refund / escalate  
-- `response` → final message  
+|--------|---------|-------------|
+| POST | `/reset` | Start new task |
+| POST | `/step` | Take action |
+| GET | `/state` | Get environment state |
+| GET | `/` | Health check |
 
 ---
 
 ## 🧪 Tasks
 
-Three difficulty levels:
+We simulate increasing difficulty:
 
-| Level | Description |
-|------|------------|
-| Easy | Clear refund request |
-| Medium | Delivery complaint |
-| Hard | Ambiguous issue requiring investigation |
+### 🟢 Easy
+Customer clearly requests refund  
+→ Expected: `refund`
 
----
+### 🟡 Medium
+Customer reports damaged product  
+→ Expected: `escalate`
 
-## 🧮 Reward System
-
-Rewards are assigned per step:
-
-- Intent correctness → **+0.4**  
-- Action correctness → **+0.3**  
-- Response quality → **+0.7**  
-
-Final score normalized between **0.0 – 1.0**
+### 🔴 Hard
+Customer gives vague complaint  
+→ Expected: `resolve`
 
 ---
 
-## 🤖 Baseline Agent
+## 🧠 Observation Space
 
-Provided in `inference.py`:
+Each observation contains:
 
-- Rule-based logic  
-- Deterministic outputs  
-- No external API dependency  
-- Fully reproducible  
+- user query  
+- task difficulty  
+- context  
 
 ---
 
-## 🐳 Running Locally
+## 🎯 Action Space
+
+Agent must choose one:
+
+- `refund`
+- `escalate`
+- `resolve`
+
+---
+
+## 🧮 Reward Design
+
+Reward is shaped to reflect decision quality:
+
+| Condition | Reward |
+|----------|--------|
+| Correct action | +0.7 |
+| Completion bonus | +0.3 |
+| Wrong action | -0.2 |
+
+Final score ∈ [0, 1]
+
+---
+
+## 🤖 Agent Design
+
+The baseline agent uses LLM reasoning:
+
+- Reads observation  
+- Decides optimal action  
+- Maps output to structured action  
+
+This simulates real AI decision pipelines.
+
+---
+
+## 🧠 Why This Environment Matters
+
+This is NOT a toy environment.
+
+It captures real-world complexity where:
+
+- inputs are ambiguous  
+- decisions have business impact  
+- multi-step reasoning is required  
+
+Such environments are critical for training production AI systems.
+
+---
+
+## 🐳 Run Locally
 
 ```bash
 docker build -t sql-env .
