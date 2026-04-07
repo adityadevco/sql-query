@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 
-from environment import SQLQueryEnv, SQLAction, TASKS
+from environment import SupportEnv as SQLQueryEnv
 
 app = FastAPI()
 
