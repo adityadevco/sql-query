@@ -7,12 +7,23 @@ app = FastAPI()
 env = SupportEnv()
 
 
+# ROOT (health check)
+@app.get("/")
+def root():
+    return {
+        "status": "running",
+        "message": "OpenEnv SQL Environment is live"
+    }
+
+
+# RESET
 @app.post("/reset")
 def reset():
     obs = env.reset()
     return obs.model_dump()
 
 
+# STEP
 @app.post("/step")
 def step(action: dict):
     action_obj = Action(**action)
@@ -26,6 +37,7 @@ def step(action: dict):
     }
 
 
-@app.get("/")
-def root():
-    return {"status": "running", "message": "OpenEnv SQL Environment is live"}
+# STATE (🔥 REQUIRED — you were missing this)
+@app.get("/state")
+def state():
+    return env.state()
