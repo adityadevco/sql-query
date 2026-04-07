@@ -7,9 +7,11 @@ client = OpenAI(
     api_key=os.environ["API_KEY"]
 )
 
+model = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
+
 env = SupportEnv()
 
-print("[START] task=sql-task env=sql-query-env model=llm-agent")
+print("[START] task=sql-task env=sql-query-env model=reasoning-agent")
 
 obs = env.reset()
 
@@ -17,19 +19,26 @@ total_reward = 0
 rewards = []
 
 for step in range(1, 4):
-    # 🔥 LLM CALL (MANDATORY)
+    prompt = f"""
+You are an intelligent customer support agent.
+
+Current observation:
+{obs}
+
+Choose the best next action from:
+refund, escalate, resolve
+
+Respond with only one word.
+"""
+
     response = client.chat.completions.create(
-        model=os.environ.get("MODEL_NAME", "gpt-3.5-turbo"),
-        messages=[
-            {"role": "system", "content": "You are a support agent."},
-            {"role": "user", "content": f"Step {step}: decide action"}
-        ],
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=10
     )
 
-    action_text = response.choices[0].message.content.lower()
+    action_text = response.choices[0].message.content.lower().strip()
 
-    # simple mapping
     if "refund" in action_text:
         action = "refund"
     elif "escalate" in action_text:
