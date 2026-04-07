@@ -1,3 +1,9 @@
+import sys
+import os
+
+# 🔥 Fix imports (important after moving to server/)
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import FastAPI
 from environment import SupportEnv
 from models import Action
@@ -37,7 +43,7 @@ def step(action: dict):
     }
 
 
-# STATE (🔥 REQUIRED — you were missing this)
+# STATE (required for OpenEnv validation)
 @app.get("/state")
 def state():
     return env.state()
